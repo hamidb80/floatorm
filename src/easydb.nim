@@ -162,7 +162,7 @@ func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
                     of nnkFloatLit: DBDefaultValue(kind: vkFloat,
                             floatVal: nval.floatVal.float)
                     of nnkStrLit: DBDefaultValue(kind: vkString,
-                            strval: nval.strVal.string)
+                            strval: nval.strVal)
                     of nnkNilLit: DBDefaultValue(kind: vkNil)
                     of nnkIdent: DBDefaultValue(kind: vkBool,
                             boolVal: parseBool nval.strVal)
@@ -205,9 +205,9 @@ func schema2objectDefs(sch: Schema): NimNode =
     result = newStmtList()
 
     for (_, table) in sch.pairs:
-        let tableName = ident table.name
+        let tableName = ident capitalizeAscii table.name
         var objDef = quote:
-            type `tableName` = object
+            type `tableName`* = object
 
         objdef[0][^1][^1] = newNimNode(nnkRecList)
 
@@ -225,7 +225,6 @@ func schema2objectDefs(sch: Schema): NimNode =
 
         result.add objdef
 
-
 func schemaGen(args, body: NimNode): Schema =
     for rawTable in body:
         let table = tableGen(rawTable)
@@ -239,4 +238,4 @@ macro Blueprint*(features, body) =
         echo "CREATE ", table
 
     result = schema2objectDefs schema
-    echo repr result
+    # echo repr result

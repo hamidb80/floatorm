@@ -1,11 +1,6 @@
 import easydb
 
 Blueprint []:
-    Table test1:
-        id: int {.primary.}
-        other_id: int[ref another.id]
-        name: char[255]
-
     Table members:
         id: int {.primary.}
         name: string[255]

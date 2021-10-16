@@ -32,4 +32,4 @@ Blueprint []:
         date: string
 
     Table test:
-        field: Option[string]
+        field: Option[char[255]]

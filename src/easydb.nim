@@ -22,7 +22,7 @@ type
         columns: seq[DBColumn]
         features: set[DBTableFeatures]
         primaryKeys: seq[string]
-        refKeys: seq[tuple[`from`, to: string]]
+        refKeys: seq[tuple[`from`, to: tuple[table, field: string]]]
 
     DBColumn = object
         name: string
@@ -50,17 +50,58 @@ func getColumnType(c: DBColumn): string=
   if c.typelimit != 0:
     result &= fmt"({c.typelimit})"
 
+const indentVal = 4
+
 func `$`(t: DBTable): string =
     result = fmt"TABLE {t.name}(" & "\n" & (
-        t.columns.mapIt indent(fmt"{it.name} {getColumnType it} {it.features}", 4)
+        t.columns.mapIt indent(fmt"{it.name} {getColumnType it} {it.features}", indentVal)
     ).join(",\n") 
 
     if t.primaryKeys.len != 0:
         result &= ",\n" & ( 
-            ("PRIMARY KEY (" & t.primaryKeys.join(", ") & ")").indent(4)
+            ("PRIMARY KEY (" & t.primaryKeys.join(", ") & ")").indent(indentVal)
         )
         
     result &= "\n);"
+
+func parseColumnType(c: var DBColumn, `type`: NimNode): DBColumnTypes=
+    var mytype = `type`
+
+    if mytype.kind == nnkBracketExpr:
+        if mytype[BracketExprIdent].strVal == "Option": # Option[string]
+            c.features.incl SCFNullable
+            mytype = mytype[1]
+            return parseColumnType(c, mytype)
+        
+        let
+            args = mytype[BracketExprParams]
+            firstArg = args[0]
+
+        mytype = mytype[BracketExprIdent]
+
+        if firstArg.kind == nnkRefTy:
+            doassert firstArg[0].kind == nnkDotExpr
+
+            let
+                refTable = firstArg[0][0].strval
+                refField = firstArg[0][1].strval
+
+        elif firstarg.allIt it.kind in [nnkIntLit, nnkStrLit]:
+            c.typeLimit = args[0].intVal.int
+
+        else:
+            error "invalid type options"
+
+    return parseEnum[DBColumnTypes](mytype.strVal)
+
+func addFeatures(t: var DBTable, c: DBColumn, featuresExpr: NimNode)=
+    for feature in featuresExpr:
+        case feature.strval:
+        of "primary": 
+            t.primaryKeys.add c.name
+        else:
+            raise newException(ValueError, "column feature is not defined")
+
 
 func columnGen(table: var DBTable, rawColumn: NimNode): DBColumn =
     let columnName = rawColumn[CommandIdent].strVal
@@ -69,44 +110,12 @@ func columnGen(table: var DBTable, rawColumn: NimNode): DBColumn =
     if params[0].kind == nnkCommand: # for columns with featues
         params = params[0]
 
-    var `type` = params[0]
     result = DBColumn(name: columnName)
-
-    # FIXME not working with Option[char[200]]
-    if `type`.kind == nnkBracketExpr:
-        if `type`[BracketExprIdent].strVal == "Option": # Option[string]
-            result.features.incl SCFNullable
-            `type` = `type`[1]
-
-        else: # string[value] | int[ref anotherTable.field]
-            let
-                args = `type`[BracketExprParams]
-                firstArg = args[0]
-            `type` = `type`[BracketExprIdent]
-
-            if firstArg.kind == nnkRefTy:
-                doassert firstArg[0].kind == nnkDotExpr
-
-                let
-                    refTable = firstArg[0][0].strval
-                    refField = firstArg[0][1].strval
-
-            elif firstarg.allIt it.kind in [nnkIntLit, nnkStrLit]:
-                result.typeLimit = args[0].intVal.int
-
-            else:
-                error "invalid type options"
-
-    result.`type` = parseEnum[DBColumnTypes](`type`.strVal)
+    result.`type` = parseColumnType(result, params[0])
 
     if params.len == 2:
-        for feature in params[1]:
-            case feature.strval:
-            of "primary": 
-                table.primaryKeys.add columnName
-            else:
-                raise newException(ValueError, "column feature is not defined")
-
+        addFeatures table, result, params[1]
+            
 
 proc tableGen(rawTable: NimNode): DBTable =
     doAssert rawTable[CommandIdent].strVal == "Table", "Entity is not Valid"

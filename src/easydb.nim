@@ -127,29 +127,29 @@ Blueprint [autoId]:
         table_id: int[ref another.id]
         name: char[255]
 
-    # Table members:
-    #     id: int {primary}
-    #     name: string[255]
+    Table members:
+        id: int {primary}
+        name: string[255]
 
-    # Table part:
-    #     id: int {primary}
-    #     name: string
+    Table part:
+        id: int {primary}
+        name: string
 
-    # Table quiz:
-    #     id: int {primary}
-    #     member_id: int[ref members.id]
-    #     name: string[255]
-    #     part_id: int[ref part.id]
+    Table quiz:
+        id: int {primary}
+        member_id: int[ref members.id]
+        name: char[255]
+        part_id: int[ref part.id]
 
-    # Table question:
-    #     id: int {primary}
-    #     quiz_id: int[ref quiz.id]
-    #     answer: int
+    Table question:
+        id: int {primary}
+        quiz_id: int[ref quiz.id]
+        answer: int
 
-    # Table record:
-    #     id: int {primary}
-    #     member_id: int[ref members.id] {update: restrict, delete: restric}
-    #     date: DateTime {auto}
+    Table record:
+        id: int {primary}
+        member_id: int[ref members.id] {update: restrict, delete: restric}
+        date: DateTime {auto}
 
-    # Table test:
-    #     field: Option[string]
+    Table test:
+        field: Option[string]

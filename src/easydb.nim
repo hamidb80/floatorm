@@ -22,7 +22,7 @@ type
         columns: seq[DBColumn]
         features: set[DBTableFeatures]
         primaryKeys: seq[string]
-        refKeys: seq[tuple[`from`, to: tuple[table, field: string]]]
+        refKeys: seq[tuple[`from`: string, to: tuple[table, column: string]]]
 
     DBColumn = object
         name: string
@@ -44,35 +44,42 @@ func `$`(dbtype: DBColumnTypes): string =
     of SCTchar: "CHAR"
     of SCTfloat: "REAL"
 
-func getColumnType(c: DBColumn): string=
-  result = $ c.`type`
+func getColumnType(c: DBColumn): string =
+    result = $ c.`type`
 
-  if c.typelimit != 0:
-    result &= fmt"({c.typelimit})"
+    if c.typelimit != 0:
+        result &= fmt"({c.typelimit})"
 
-const indentVal = 4
-
-func `$`(t: DBTable): string =
+func `$`(t: DBTable, indentVal = 4): string =
     result = fmt"TABLE {t.name}(" & "\n" & (
         t.columns.mapIt indent(fmt"{it.name} {getColumnType it} {it.features}", indentVal)
-    ).join(",\n") 
+    ).join(",\n")
 
     if t.primaryKeys.len != 0:
-        result &= ",\n" & ( 
+        result &= ",\n" & (
             ("PRIMARY KEY (" & t.primaryKeys.join(", ") & ")").indent(indentVal)
         )
-        
+
+    if t.refkeys.len != 0:
+        result &= ",\n" & (
+            t.refkeys.mapIt (fmt"FOREIGN KEY ({it.`from`}) REFERENCES {it.to.table} ({it.to.column})").indent(indentVal)
+        ).join ",\n"
+
+
     result &= "\n);"
 
-func parseColumnType(c: var DBColumn, `type`: NimNode): DBColumnTypes=
+# ---------------------------
+
+func resolveColumnType(t: var DBTable, c: var DBColumn,
+        `type`: NimNode): DBColumnTypes =
     var mytype = `type`
 
     if mytype.kind == nnkBracketExpr:
         if mytype[BracketExprIdent].strVal == "Option": # Option[string]
             c.features.incl SCFNullable
             mytype = mytype[1]
-            return parseColumnType(c, mytype)
-        
+            return resolveColumnType(t, c, mytype)
+
         let
             args = mytype[BracketExprParams]
             firstArg = args[0]
@@ -84,7 +91,9 @@ func parseColumnType(c: var DBColumn, `type`: NimNode): DBColumnTypes=
 
             let
                 refTable = firstArg[0][0].strval
-                refField = firstArg[0][1].strval
+                refColumn = firstArg[0][1].strval
+
+            t.refkeys.add (c.name, (refTable, refColumn))
 
         elif firstarg.allIt it.kind in [nnkIntLit, nnkStrLit]:
             c.typeLimit = args[0].intVal.int
@@ -94,14 +103,13 @@ func parseColumnType(c: var DBColumn, `type`: NimNode): DBColumnTypes=
 
     return parseEnum[DBColumnTypes](mytype.strVal)
 
-func addFeatures(t: var DBTable, c: DBColumn, featuresExpr: NimNode)=
+func addFeatures(t: var DBTable, c: DBColumn, featuresExpr: NimNode) =
     for feature in featuresExpr:
         case feature.strval:
-        of "primary": 
+        of "primary":
             t.primaryKeys.add c.name
         else:
             raise newException(ValueError, "column feature is not defined")
-
 
 func columnGen(table: var DBTable, rawColumn: NimNode): DBColumn =
     let columnName = rawColumn[CommandIdent].strVal
@@ -111,24 +119,23 @@ func columnGen(table: var DBTable, rawColumn: NimNode): DBColumn =
         params = params[0]
 
     result = DBColumn(name: columnName)
-    result.`type` = parseColumnType(result, params[0])
+    result.`type` = resolveColumnType(table, result, params[0])
 
     if params.len == 2:
         addFeatures table, result, params[1]
-            
 
-proc tableGen(rawTable: NimNode): DBTable =
+func tableGen(rawTable: NimNode): DBTable =
     doAssert rawTable[CommandIdent].strVal == "Table", "Entity is not Valid"
     let tableName = rawTable[1].strVal
 
     result = DBTable(name: tableName)
     result.columns = rawTable[CommandBody].mapIt columnGen(result, it)
 
-
-proc schemaGen(args, body: NimNode): Schema =
+func schemaGen(args, body: NimNode): Schema =
     for rawTable in body:
         let table = tableGen(rawTable)
         result[table.name] = table
+
 
 macro Blueprint*(features, body) =
     echo treeRepr body

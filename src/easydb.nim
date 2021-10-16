@@ -37,28 +37,19 @@ type
 
     DBDefaultValue = object
         case kind: DefaltValueKind
-        of vkInt:
-            intval: int
-        of vkFloat:
-            floatval: float
-        of vkString:
-            strval: string
-        of vkNil:
-            nil
-        of vkBool:
-            boolval: bool
+        of vkInt: intval: int
+        of vkFloat: floatval: float
+        of vkString: strval: string
+        of vkNil: nil
+        of vkBool: boolval: bool
 
 func columnType2nimIdent(ct: DBColumnTypes): NimNode =
     ident:
         case ct:
-        of SCTint:
-            "int"
-        of SCTtext:
-            "string"
-        of SCTchar:
-            "string"
-        of SCTfloat:
-            "float"
+        of SCTint: "int"
+        of SCTtext: "string"
+        of SCTchar: "string"
+        of SCTfloat: "float"
 
 func `$`(features: set[DBColumnFeatures]): string =
     ([

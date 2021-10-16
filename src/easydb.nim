@@ -30,6 +30,24 @@ type
         typeLimit: int
         refrence: Option[tuple[tableName, fieldName: string]]
         features: set[DBColumnFeatures]
+        defaultValue: Option[DBDefaultValue]
+
+    DefaltValueKind = enum  
+        vkInt, vkFloat, vkString, vkNil, vkBool
+
+    DBDefaultValue = object
+        case kind: DefaltValueKind
+        of vkInt: 
+            intval: int
+        of vkFloat: 
+            floatval: float
+        of vkString: 
+            strval: string
+        of vkNil: 
+            nil
+        of vkBool: 
+            boolval: bool
+        
 
 func `$`(features: set[DBColumnFeatures]): string =
     ([
@@ -50,10 +68,23 @@ func getColumnType(c: DBColumn): string =
     if c.typelimit != 0:
         result &= fmt"({c.typelimit})"
 
+func getDefaultValIfExists(defaultVal: Option[DBDefaultValue]): string=
+    if not issome defaultVal:
+        return
+    
+    "DEFAULT " & (
+        case defaultVal.get.kind:
+        of vkInt: $ defaultval.get.intval
+        of vkFloat: $ defaultval.get.floatval
+        of vkString: '"' & defaultval.get.strval & '"'
+        of vkBool: $ defaultval.get.boolval
+        of vkNil: "NULL"
+    )
+
 func `$`(t: DBTable, indentVal = 4): string =
     result = fmt"TABLE {t.name}(" & "\n" & (
-        t.columns.mapIt indent(fmt"{it.name} {getColumnType it} {it.features}", indentVal)
-    ).join(",\n")
+        t.columns.mapIt indent(fmt"{it.name} {getColumnType it} {it.features} {getDefaultValIfExists it.defaultValue}", indentVal)
+    ).join ",\n"
 
     if t.primaryKeys.len != 0:
         result &= ",\n" & (
@@ -103,19 +134,43 @@ func resolveColumnType(t: var DBTable, c: var DBColumn,
 
     return parseEnum[DBColumnTypes](mytype.strVal)
 
-func addFeatures(t: var DBTable, c: DBColumn, featuresExpr: NimNode) =
+func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
+    template notFound =
+        raise newException(ValueError, "column feature is not defined")
+
     for feature in featuresExpr:
-        case feature.strval:
-        of "primary":
-            t.primaryKeys.add c.name
+        case feature.kind:
+        of nnkExprColonExpr:
+            case feature[ColonExprLeftSide].strval.normalize:
+            of "default":
+                let nval = feature[ColonExprrightSide] 
+                c.defaultValue = some:
+                    case nval.kind:
+                    of nnkIntLit: DBDefaultValue(kind: vkInt, intval: nval.intval.int)
+                    of nnkFloatLit: DBDefaultValue(kind: vkFloat, floatVal: nval.floatVal.float)
+                    of nnkStrLit: DBDefaultValue(kind: vkString, strval: nval.strVal.string)
+                    of nnkNilLit: DBDefaultValue(kind: vkNil)
+                    of nnkIdent: DBDefaultValue(kind: vkBool, boolVal: parseBool nval.strVal)
+                    else:
+                        raise newException(ValueError, "invalid default value")
+            
+            else: notFound
+
+        of nnkIdent:
+            case feature.strval.normalize:
+            of "primary":
+                t.primaryKeys.add c.name
+
+            else: notFound
+
         else:
-            raise newException(ValueError, "column feature is not defined")
+            error "feature nim node kind is not acceptable"
 
 func columnGen(table: var DBTable, rawColumn: NimNode): DBColumn =
     let columnName = rawColumn[CommandIdent].strVal
     var params = rawColumn[CommandBody]
 
-    if params[0].kind == nnkCommand: # for columns with featues
+    if params[0].kind == nnkPragmaExpr: # for columns with featues
         params = params[0]
 
     result = DBColumn(name: columnName)

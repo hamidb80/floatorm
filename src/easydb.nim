@@ -9,18 +9,20 @@ type
         SCTfloat = "float"
 
     DBColumnFeatures {.pure.} = enum
-        SCFNullable, SCFprimary
+        SCFNullable
 
     DBTableFeatures = enum
         STFaddId
 
 
-    Schema = Table[string, DBTable]
+    Schema* = OrderedTable[string, DBTable]
 
     DBTable = object
         name: string
         columns: seq[DBColumn]
         features: set[DBTableFeatures]
+        primaryKeys: seq[string]
+        refKeys: seq[tuple[`from`, to: string]]
 
     DBColumn = object
         name: string
@@ -31,8 +33,7 @@ type
 
 func `$`(features: set[DBColumnFeatures]): string =
     ([
-      (SCFprimary in features , "PRIMARY KEY"),
-      (SCFNullable notin features and SCFprimary notin features, "NOT NULL"),
+      (SCFNullable notin features, "NOT NULL"),
     ]
     .filterIt(it[0]).mapit it[1]).join(" ")
 
@@ -50,11 +51,18 @@ func getColumnType(c: DBColumn): string=
     result &= fmt"({c.typelimit})"
 
 func `$`(t: DBTable): string =
-    fmt"TABLE {t.name}(" & "\n" & (
+    result = fmt"TABLE {t.name}(" & "\n" & (
         t.columns.mapIt indent(fmt"{it.name} {getColumnType it} {it.features}", 4)
-    ).join(",\n") & "\n);"
+    ).join(",\n") 
 
-func columnGen(rawColumn: NimNode): DBColumn =
+    if t.primaryKeys.len != 0:
+        result &= ",\n" & ( 
+            ("PRIMARY KEY (" & t.primaryKeys.join(", ") & ")").indent(4)
+        )
+        
+    result &= "\n);"
+
+func columnGen(table: var DBTable, rawColumn: NimNode): DBColumn =
     let columnName = rawColumn[CommandIdent].strVal
     var params = rawColumn[CommandBody]
 
@@ -93,10 +101,11 @@ func columnGen(rawColumn: NimNode): DBColumn =
 
     if params.len == 2:
         for feature in params[1]:
-            result.features.incl:
-                case feature.strval:
-                of "primary": SCFprimary
-                else: raise newException(ValueError, "column feature is not defined")
+            case feature.strval:
+            of "primary": 
+                table.primaryKeys.add columnName
+            else:
+                raise newException(ValueError, "column feature is not defined")
 
 
 proc tableGen(rawTable: NimNode): DBTable =
@@ -104,7 +113,7 @@ proc tableGen(rawTable: NimNode): DBTable =
     let tableName = rawTable[1].strVal
 
     result = DBTable(name: tableName)
-    result.columns = rawTable[CommandBody].mapIt it.columnGen
+    result.columns = rawTable[CommandBody].mapIt columnGen(result, it)
 
 
 proc schemaGen(args, body: NimNode): Schema =
@@ -112,44 +121,10 @@ proc schemaGen(args, body: NimNode): Schema =
         let table = tableGen(rawTable)
         result[table.name] = table
 
-macro Blueprint(features, body) =
+macro Blueprint*(features, body) =
     echo treeRepr body
 
     let schema = schemaGen(features, body)
 
     for (name, table) in schema.pairs:
         echo "CREATE ", table
-
-
-Blueprint [autoId]:
-    Table test1:
-        id: int {primary} 
-        table_id: int[ref another.id]
-        name: char[255]
-
-    Table members:
-        id: int {primary}
-        name: string[255]
-
-    Table part:
-        id: int {primary}
-        name: string
-
-    Table quiz:
-        id: int {primary}
-        member_id: int[ref members.id]
-        name: char[255]
-        part_id: int[ref part.id]
-
-    Table question:
-        id: int {primary}
-        quiz_id: int[ref quiz.id]
-        answer: int
-
-    Table record:
-        id: int {primary}
-        member_id: int[ref members.id] {update: restrict, delete: restric}
-        date: DateTime {auto}
-
-    Table test:
-        field: Option[string]

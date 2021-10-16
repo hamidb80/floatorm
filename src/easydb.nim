@@ -32,22 +32,33 @@ type
         features: set[DBColumnFeatures]
         defaultValue: Option[DBDefaultValue]
 
-    DefaltValueKind = enum  
+    DefaltValueKind = enum
         vkInt, vkFloat, vkString, vkNil, vkBool
 
     DBDefaultValue = object
         case kind: DefaltValueKind
-        of vkInt: 
+        of vkInt:
             intval: int
-        of vkFloat: 
+        of vkFloat:
             floatval: float
-        of vkString: 
+        of vkString:
             strval: string
-        of vkNil: 
+        of vkNil:
             nil
-        of vkBool: 
+        of vkBool:
             boolval: bool
-        
+
+func columnType2nimIdent(ct: DBColumnTypes): NimNode =
+    ident:
+        case ct:
+        of SCTint:
+            "int"
+        of SCTtext:
+            "string"
+        of SCTchar:
+            "string"
+        of SCTfloat:
+            "float"
 
 func `$`(features: set[DBColumnFeatures]): string =
     ([
@@ -68,10 +79,10 @@ func getColumnType(c: DBColumn): string =
     if c.typelimit != 0:
         result &= fmt"({c.typelimit})"
 
-func getDefaultValIfExists(defaultVal: Option[DBDefaultValue]): string=
+func getDefaultValIfExists(defaultVal: Option[DBDefaultValue]): string =
     if not issome defaultVal:
         return
-    
+
     "DEFAULT " & (
         case defaultVal.get.kind:
         of vkInt: $ defaultval.get.intval
@@ -143,17 +154,21 @@ func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
         of nnkExprColonExpr:
             case feature[ColonExprLeftSide].strval.normalize:
             of "default":
-                let nval = feature[ColonExprrightSide] 
+                let nval = feature[ColonExprrightSide]
                 c.defaultValue = some:
                     case nval.kind:
-                    of nnkIntLit: DBDefaultValue(kind: vkInt, intval: nval.intval.int)
-                    of nnkFloatLit: DBDefaultValue(kind: vkFloat, floatVal: nval.floatVal.float)
-                    of nnkStrLit: DBDefaultValue(kind: vkString, strval: nval.strVal.string)
+                    of nnkIntLit: DBDefaultValue(kind: vkInt,
+                            intval: nval.intval.int)
+                    of nnkFloatLit: DBDefaultValue(kind: vkFloat,
+                            floatVal: nval.floatVal.float)
+                    of nnkStrLit: DBDefaultValue(kind: vkString,
+                            strval: nval.strVal.string)
                     of nnkNilLit: DBDefaultValue(kind: vkNil)
-                    of nnkIdent: DBDefaultValue(kind: vkBool, boolVal: parseBool nval.strVal)
+                    of nnkIdent: DBDefaultValue(kind: vkBool,
+                            boolVal: parseBool nval.strVal)
                     else:
                         raise newException(ValueError, "invalid default value")
-            
+
             else: notFound
 
         of nnkIdent:
@@ -186,6 +201,31 @@ func tableGen(rawTable: NimNode): DBTable =
     result = DBTable(name: tableName)
     result.columns = rawTable[CommandBody].mapIt columnGen(result, it)
 
+func schema2objectDefs(sch: Schema): NimNode =
+    result = newStmtList()
+
+    for (_, table) in sch.pairs:
+        let tableName = ident table.name
+        var objDef = quote:
+            type `tableName` = object
+
+        objdef[0][^1][^1] = newNimNode(nnkRecList)
+
+        for col in table.columns:
+            let maybeType = columnType2nimIdent(col.`type`)
+
+            objdef[0][^1][^1].add newIdentDefs(
+                ident(col.name),
+
+                if SCFNullable in col.features:
+                    newNimNode(nnkbracketExpr).add(bindsym "Option", maybeType)
+                else:
+                    maybeType
+            )
+
+        result.add objdef
+
+
 func schemaGen(args, body: NimNode): Schema =
     for rawTable in body:
         let table = tableGen(rawTable)
@@ -193,9 +233,10 @@ func schemaGen(args, body: NimNode): Schema =
 
 
 macro Blueprint*(features, body) =
-    echo treeRepr body
-
     let schema = schemaGen(features, body)
 
     for (name, table) in schema.pairs:
         echo "CREATE ", table
+
+    result = schema2objectDefs schema
+    echo repr result

@@ -16,8 +16,8 @@ type
 
     SchemaOptions = object
         queryHolder: NimNode # variable to save init query
-        prefix: string    # table name prefix
-        postfix: string   # table name postfix
+        prefix: string       # table name prefix
+        postfix: string      # table name postfix
 
     Schema* = OrderedTable[string, DBTable]
 
@@ -206,8 +206,8 @@ func schema2objectDefs(sch: Schema): NimNode =
 
     for (tableName, table) in sch.pairs:
         let tableIdent = ident tableName
-        var objDef = 
-            when defined test:
+        var objDef =
+            when defined easydbtest:
                 quote:
                     type `tableIdent` = object
             else:
@@ -253,21 +253,21 @@ func resolveSchemeOptions(options: NimNode): SchemaOptions =
             error "undefined option key"
 
 macro Blueprint*(options, body) =
-    let 
+    let
         resolvedOptions = resolveSchemeOptions options
         schema = schemaGen(resolvedOptions, body)
 
     result = schema2objectDefs schema
-    
+
     if resolvedOptions.queryHolder != nil:
         let tablesQuery = collect newseq:
             for (name, table) in schema.pairs:
                 "CREATE " & $table
 
-        let 
+        let
             path = resolvedOptions.queryHolder
             query = tablesQuery.join "\n"
-        
+
         result.add quote do:
             `path` = `query`
 

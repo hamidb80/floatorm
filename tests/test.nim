@@ -54,6 +54,18 @@ suite "table creation":
                 "PRIMARY KEY (id)"
             ]
 
+        test "MULTI PRIMARY KEYS":
+            Blueprint [queryHolder: query]:
+                Table test:
+                    id: int {.primary.}
+                    number: int {.primary.}
+
+            check query == "test".createTable [
+                "id INTEGER NOT NULL",
+                "number INTEGER NOT NULL",
+                "PRIMARY KEY (id, number)"
+            ]
+
         test "DEFAULT VALUE":
             Blueprint [queryHolder: query]:
                 Table test:

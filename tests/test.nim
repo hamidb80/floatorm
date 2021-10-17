@@ -3,11 +3,15 @@ import easydb
 
 suite "nameing options":
     test "prefix & postfix":
-        Blueprint [prefix: "zz", postfix: "Model"]:
-            Table test:
+        var query: string
+
+        Blueprint [prefix: "zz", postfix: "Model", queryHolder: query]:
+            Table my_table:
                 id: int
 
-        discard ZztestModel()
+        discard ZzMyTableModel()
+        check: # NOTE: prefix and postfix do not have any effects on actual table name
+            "my_table" in query 
 
     test "prefix":
         Blueprint [prefix: "zz"]:

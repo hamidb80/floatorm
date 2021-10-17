@@ -8,7 +8,7 @@ type
         SCTchar = "char"
         SCTfloat = "float"
 
-    DBColumnFeatures {.pure.} = enum
+    DBColumnFeatures = enum
         SCFNullable
 
     DBTableFeatures = enum

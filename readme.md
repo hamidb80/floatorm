@@ -8,5 +8,5 @@ for now, take a look at `tests/test.nim`
 currently it only supports `Sqlite`
 
 ## Todo:
-- [] read from existing database
-- [] migration
+- [ ] read from existing database
+- [ ] migration

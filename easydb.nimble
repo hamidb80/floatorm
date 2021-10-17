@@ -11,3 +11,4 @@ srcDir        = "src"
 
 requires "nim >= 1.5.1"
 requires "macroplus >= 0.1.4"
+requires "https://github.com/hamidb80/easydb"

@@ -7,28 +7,28 @@ suite "nameing options":
             Table test:
                 id: int
 
-        discard zztestModel()
+        discard ZztestModel()
 
     test "prefix":
         Blueprint [prefix: "zz"]:
             Table test:
                 id: int
 
-        discard zztest()
+        discard Zztest()
 
     test "postfix":
         Blueprint [postfix: "zz"]:
             Table test:
                 id: int
 
-        discard testzz()
+        discard Testzz()
 
     test "nothing":
         Blueprint []:
             Table test:
                 id: int
 
-        discard test()
+        discard Test()
 
 func createTable(tableName: string, rows: openArray[string]): string =
     "CREATE TABLE test(\n" &
@@ -114,10 +114,10 @@ suite "correspoding object defenition":
                 bio: string
 
         check:
-            model.id is int
-            model.name is string
-            model.price is float
-            model.bio is string
+            Model.id is int
+            Model.name is string
+            Model.price is float
+            Model.bio is string
 
     test "optional types":
         Blueprint []:
@@ -126,7 +126,7 @@ suite "correspoding object defenition":
                 name: Option[char[256]]
 
         check:
-            model.id is Option[int]
-            model.name is Option[string]
+            Model.id is Option[int]
+            Model.name is Option[string]
 
 

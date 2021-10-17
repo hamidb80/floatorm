@@ -205,7 +205,7 @@ func schema2objectDefs(sch: Schema): NimNode =
     result = newStmtList()
 
     for (tableName, table) in sch.pairs:
-        let tableIdent = ident tableName
+        let tableIdent = ident capitalizeAscii tableName
         var objDef =
             when defined easydbtest:
                 quote:
@@ -234,7 +234,9 @@ func schema2objectDefs(sch: Schema): NimNode =
 func schemaGen(options: SchemaOptions, body: NimNode): Schema =
     for rawTable in body:
         let table = tableGen(rawTable)
-        result[options.prefix & table.name & options.postfix] = table
+        let tablename = table.name
+
+        result[options.prefix & tablename & options.postfix] = table
 
 func resolveSchemeOptions(options: NimNode): SchemaOptions =
     doAssert options.kind == nnkBracket

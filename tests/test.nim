@@ -1,4 +1,4 @@
-import unittest, strutils, sequtils
+import unittest, strutils, sequtils, options
 import easydb
 
 suite "nameing options":
@@ -22,6 +22,13 @@ suite "nameing options":
                 id: int
 
         discard testzz()
+
+    test "nothing":
+        Blueprint []:
+            Table test:
+                id: int
+
+        discard test()
 
 func createTable(tableName: string, rows: openArray[string]): string =
     "CREATE TABLE test(\n" &
@@ -96,3 +103,30 @@ suite "table creation":
             "out_id INTEGER NOT NULL",
             "FOREIGN KEY (out_id) REFERENCES other (id)"
         ]
+
+suite "correspoding object defenition":
+    test "simple types":
+        Blueprint []:
+            Table model:
+                id: int
+                name: char[256]
+                price: float
+                bio: string
+
+        check:
+            model.id is int
+            model.name is string
+            model.price is float
+            model.bio is string
+
+    test "optional types":
+        Blueprint []:
+            Table model:
+                id: Option[int]
+                name: Option[char[256]]
+
+        check:
+            model.id is Option[int]
+            model.name is Option[string]
+
+

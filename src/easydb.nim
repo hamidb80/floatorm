@@ -1,5 +1,5 @@
-import macros, macroplus
 import options, strutils, strformat, sequtils, tables
+import macros, macroplus, sugar
 
 type
     DBColumnTypes {.pure.} = enum
@@ -14,6 +14,10 @@ type
     DBTableFeatures = enum
         STFaddId
 
+    SchemaOptions = object
+        savePath: NimNode # path to save init query
+        prefix: string   # table name prefix
+        postfix: string  # table name postfix
 
     Schema* = OrderedTable[string, DBTable]
 
@@ -27,7 +31,7 @@ type
     DBColumn = object
         name: string
         `type`: DBColumnTypes
-        typeLimit: int
+        typeArg: int
         refrence: Option[tuple[tableName, fieldName: string]]
         features: set[DBColumnFeatures]
         defaultValue: Option[DBDefaultValue]
@@ -67,8 +71,8 @@ func `$`(dbtype: DBColumnTypes): string =
 func getColumnType(c: DBColumn): string =
     result = $ c.`type`
 
-    if c.typelimit != 0:
-        result &= fmt"({c.typelimit})"
+    if c.typeArg != 0:
+        result &= fmt"({c.typeArg})"
 
 func getDefaultValIfExists(defaultVal: Option[DBDefaultValue]): string =
     if not issome defaultVal:
@@ -85,7 +89,12 @@ func getDefaultValIfExists(defaultVal: Option[DBDefaultValue]): string =
 
 func `$`(t: DBTable, indentVal = 4): string =
     result = fmt"TABLE {t.name}(" & "\n" & (
-        t.columns.mapIt indent(fmt"{it.name} {getColumnType it} {it.features} {getDefaultValIfExists it.defaultValue}", indentVal)
+        t.columns.mapIt [
+            it.name,
+            getColumnType it,
+            $ it.features,
+            getDefaultValIfExists it.defaultValue
+        ].filterIt(it != "").join(" ").indent(indentVal)
     ).join ",\n"
 
     if t.primaryKeys.len != 0:
@@ -108,7 +117,7 @@ func resolveColumnType(t: var DBTable, c: var DBColumn,
     var mytype = `type`
 
     if mytype.kind == nnkBracketExpr:
-        if mytype[BracketExprIdent].strVal == "Option": # Option[string]
+        if mytype[BracketExprIdent].strVal == "Option":
             c.features.incl SCFNullable
             mytype = mytype[1]
             return resolveColumnType(t, c, mytype)
@@ -129,7 +138,7 @@ func resolveColumnType(t: var DBTable, c: var DBColumn,
             t.refkeys.add (c.name, (refTable, refColumn))
 
         elif firstarg.allIt it.kind in [nnkIntLit, nnkStrLit]:
-            c.typeLimit = args[0].intVal.int
+            c.typeArg = args[0].intVal.int
 
         else:
             error "invalid type options"
@@ -195,10 +204,16 @@ func tableGen(rawTable: NimNode): DBTable =
 func schema2objectDefs(sch: Schema): NimNode =
     result = newStmtList()
 
-    for (_, table) in sch.pairs:
-        let tableName = ident capitalizeAscii table.name
-        var objDef = quote:
-            type `tableName`* = object
+    for (tableName, table) in sch.pairs:
+        let tableIdent = ident tableName
+        var objDef = 
+            when defined test:
+                quote:
+                    type `tableIdent` = object
+            else:
+                quote:
+                    type `tableIdent`* = object
+
 
         objdef[0][^1][^1] = newNimNode(nnkRecList)
 
@@ -216,17 +231,43 @@ func schema2objectDefs(sch: Schema): NimNode =
 
         result.add objdef
 
-func schemaGen(args, body: NimNode): Schema =
+func schemaGen(options: SchemaOptions, body: NimNode): Schema =
     for rawTable in body:
         let table = tableGen(rawTable)
-        result[table.name] = table
+        result[options.prefix & table.name & options.postfix] = table
 
+func resolveSchemeOptions(options: NimNode): SchemaOptions =
+    doAssert options.kind == nnkBracket
 
-macro Blueprint*(features, body) =
-    let schema = schemaGen(features, body)
+    for pair in options:
+        doAssert pair.kind == nnkExprColonExpr, "undefined option type | it must be like prop: value"
+        let
+            field = pair[0].strval
+            value = pair[1]
 
-    for (name, table) in schema.pairs:
-        echo "CREATE ", table
+        case field.normalize:
+        of "savepath": result.savePath = value
+        of "prefix": result.prefix = value.strval
+        of "postfix": result.postfix = value.strval
+        else:
+            error "undefined option key"
+
+macro Blueprint*(options, body) =
+    let 
+        resolvedOptions = resolveSchemeOptions options
+        schema = schemaGen(resolvedOptions, body)
 
     result = schema2objectDefs schema
-    # echo repr result
+    if resolvedOptions.savePath != nil:
+        let tablesQuery = collect newseq:
+            for (name, table) in schema.pairs:
+                "CREATE " & $table
+
+        let 
+            path = resolvedOptions.savePath
+            query = tablesQuery.join "\n"
+        
+        result.add quote do:
+            writefile `path`, `query`
+
+    echo result.repr

@@ -221,7 +221,7 @@ func schema2objectDefs(sch: Schema): NimNode =
             let maybeType = columnType2nimIdent(col.`type`)
 
             objdef[0][^1][^1].add newIdentDefs(
-                ident(col.name),
+                newNimNode(nnkPostfix).add(ident "*").add(ident col.name),
 
                 if SCFNullable in col.features:
                     newNimNode(nnkbracketExpr).add(bindsym "Option", maybeType)

@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.0.1"
+version       = "0.0.2"
 author        = "hamidb80"
 description   = "A new awesome nimble package"
 license       = "MIT"
@@ -11,4 +11,3 @@ srcDir        = "src"
 
 requires "nim >= 1.5.1"
 requires "macroplus >= 0.1.4"
-requires "https://github.com/hamidb80/easydb"

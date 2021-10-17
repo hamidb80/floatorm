@@ -1,56 +1,86 @@
-import unittest, macros, os
+import unittest, strutils, sequtils
 import easydb
 
-suite "compiles":
-    test "":
-        Blueprint [postfix: "Model"]:
-            Table members:
-                id: int {.primary.}
-                name: string[255]
-
-            Table part:
-                id: int {.primary.}
-                name: string
-
-            Table quiz:
-                id: int {.primary.}
-                member_id: int[ref members.id]
-                name: char[255]
-                part_id: int[ref part.id]
-
-            Table question:
-                id: int {.primary.}
-                quiz_id: int[ref quiz.id]
-                answer: int
-
-            Table record:
-                id: int {.primary.}
-                answerts: Option[char[400]] {.default: 100.}
-                question_order: char[400] {.primary.}
-                member_id: int[ref members.id] #TODO {on_update: restrict, onDelete: restric}
-                date: char[400] {.primary, default: "val".}
-
+suite "nameing options":
+    test "prefix & postfix":
+        Blueprint [prefix: "zz", postfix: "Model"]:
             Table test:
-                field: Option[char[255]]
+                id: int
 
+        discard zztestModel()
 
-template createTable(path = "temp.sql"): untyped =
-    Blueprint [savePath: path, postfix: "t1"]:
-        Table members:
-            id: int
-            name: char
+    test "prefix":
+        Blueprint [prefix: "zz"]:
+            Table test:
+                id: int
 
-    let query = readfile path
-    removefile path
+        discard zztest()
 
-    query
+    test "postfix":
+        Blueprint [postfix: "zz"]:
+            Table test:
+                id: int
+
+        discard testzz()
+
+func createTable(tableName: string, rows: openArray[string]): string =
+    "CREATE TABLE test(\n" &
+    rows.mapIt(it.indent 4).join(",\n") &
+    "\n);"
 
 suite "table creation":
-    setup:
-        echo "run before each test"
-  
-    teardown:
-        echo "run after each test"
-    
-    test "1":
-        echo createTable()
+    var query: string
+
+    test "simple typed columns":
+        Blueprint [queryHolder: query]:
+            Table test:
+                id: int
+                name: char[256]
+
+        check query == "test".createTable [
+            "id INTEGER NOT NULL",
+            "name CHAR(256) NOT NULL"
+        ]
+
+
+    suite "columns with options":
+        test "PRIMARY":
+            Blueprint [queryHolder: query]:
+                Table test:
+                    id: int {.primary.}
+
+            check query == "test".createTable [
+                "id INTEGER NOT NULL",
+                "PRIMARY KEY (id)"
+            ]
+
+        test "DEFAULT VALUE":
+            Blueprint [queryHolder: query]:
+                Table test:
+                    id: int {.default: 10.}
+
+            check query == "test".createTable [
+                "id INTEGER NOT NULL DEFAULT 10"
+            ]
+
+    test "OPTIONAL":
+        Blueprint [queryHolder: query]:
+            Table test:
+                id: Option[int]
+                name: Option[char[256]]
+
+        check query == "test".createTable [
+            "id INTEGER",
+            "name CHAR(256)"
+        ]
+
+
+    test "RELATION":
+        Blueprint [queryHolder: query]:
+            Table test:
+                out_id: int[ref other.id]
+
+        check query == "test".createTable [
+            "out_id INTEGER NOT NULL",
+            "FOREIGN KEY (out_id) REFERENCES other (id)"
+        ]

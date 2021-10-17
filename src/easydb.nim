@@ -15,9 +15,9 @@ type
         STFaddId
 
     SchemaOptions = object
-        savePath: NimNode # path to save init query
-        prefix: string   # table name prefix
-        postfix: string  # table name postfix
+        queryHolder: NimNode # variable to save init query
+        prefix: string    # table name prefix
+        postfix: string   # table name postfix
 
     Schema* = OrderedTable[string, DBTable]
 
@@ -246,7 +246,7 @@ func resolveSchemeOptions(options: NimNode): SchemaOptions =
             value = pair[1]
 
         case field.normalize:
-        of "savepath": result.savePath = value
+        of "queryholder": result.queryHolder = value
         of "prefix": result.prefix = value.strval
         of "postfix": result.postfix = value.strval
         else:
@@ -258,16 +258,17 @@ macro Blueprint*(options, body) =
         schema = schemaGen(resolvedOptions, body)
 
     result = schema2objectDefs schema
-    if resolvedOptions.savePath != nil:
+    
+    if resolvedOptions.queryHolder != nil:
         let tablesQuery = collect newseq:
             for (name, table) in schema.pairs:
                 "CREATE " & $table
 
         let 
-            path = resolvedOptions.savePath
+            path = resolvedOptions.queryHolder
             query = tablesQuery.join "\n"
         
         result.add quote do:
-            writefile `path`, `query`
+            `path` = `query`
 
-    echo result.repr
+    # echo result.repr

@@ -26,6 +26,7 @@ type
         columns: seq[DBColumn]
         features: set[DBTableFeatures]
         primaryKeys: seq[string]
+        uniqueColumns: seq[string]
         refKeys: seq[tuple[`from`: string, to: tuple[table, column: string]]]
 
     DBColumn = object
@@ -102,6 +103,12 @@ func `$`(t: DBTable, indentVal = 4): string =
             ("PRIMARY KEY (" & t.primaryKeys.join(", ") & ")").indent(indentVal)
         )
 
+    if t.uniqueColumns.len != 0:
+        result &= ",\n" & (
+            ("UNIQUE (" & t.uniqueColumns.join(", ") & ")").indent(indentVal)
+        )
+
+
     if t.refkeys.len != 0:
         result &= ",\n" & (
             t.refkeys.mapIt (fmt"FOREIGN KEY ({it.`from`}) REFERENCES {it.to.table} ({it.to.column})").indent(indentVal)
@@ -175,9 +182,10 @@ func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
             case feature.strval.normalize:
             of "primary":
                 t.primaryKeys.add c.name
-
+            of "unique":
+                t.uniqueColumns.add c.name
+            
             else: notFound
-
         else:
             error "feature nim node kind is not acceptable"
 

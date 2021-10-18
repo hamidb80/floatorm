@@ -55,17 +55,7 @@ suite "table creation":
 
 
     suite "columns with options":
-        test "PRIMARY":
-            Blueprint [queryHolder: query]:
-                Table test:
-                    id: int {.primary.}
-
-            check query == "test".createTable [
-                "id INTEGER NOT NULL",
-                "PRIMARY KEY (id)"
-            ]
-
-        test "MULTI PRIMARY KEYS":
+        test "PRIMARY KEYS":
             Blueprint [queryHolder: query]:
                 Table test:
                     id: int {.primary.}
@@ -95,6 +85,18 @@ suite "table creation":
         check query == "test".createTable [
             "id INTEGER",
             "name CHAR(256)"
+        ]
+
+    test "UNIQUE":
+        Blueprint [queryHolder: query]:
+            Table test:
+                id: int {.unique.}
+                name: string {.unique.}
+
+        check query == "test".createTable [
+            "id INTEGER NOT NULL",
+            "name TEXT NOT NULL",
+            "UNIQUE (id, name)"
         ]
 
 

@@ -1,2 +1,4 @@
 play.nim
 *.exe
+
+tests/test

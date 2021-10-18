@@ -2,11 +2,11 @@ import options, strutils, strformat, sequtils, tables
 import macros, macroplus, sugar
 
 type
-    DBColumnTypes {.pure.} = enum
-        SCTint = "int"
-        SCTtext = "string"
-        SCTchar = "char"
-        SCTfloat = "float"
+    DBColumnTypes = enum
+        SCTint
+        SCTtext
+        SCTchar
+        SCTfloat
 
     DBColumnFeatures = enum
         SCFNullable
@@ -51,16 +51,25 @@ type
 func columnType2nimIdent(ct: DBColumnTypes): NimNode =
     ident:
         case ct:
-        of SCTint: "int"
+        of SCTint: "int64"
         of SCTtext: "string"
         of SCTchar: "string"
-        of SCTfloat: "float"
+        of SCTfloat: "float64"
 
 func `$`(features: set[DBColumnFeatures]): string =
     ([
       (SCFNullable notin features, "NOT NULL"),
     ]
     .filterIt(it[0]).mapit it[1]).join(" ")
+
+func nimtype2sqlite(`type`: string): DBColumnTypes =
+    case `type`:
+    of "int", "int8", "int32", "int64": SCTint
+    of "string": SCTtext
+    of "char": SCTchar
+    of "float32", "float64": SCTfloat
+    else:
+        raise newException(ValueError, "nim type is not supported")
 
 func `$`(dbtype: DBColumnTypes): string =
     case dbtype:
@@ -83,13 +92,13 @@ func getDefaultValIfExists(defaultVal: Option[DBDefaultValue]): string =
         case defaultVal.get.kind:
         of vkInt: $ defaultval.get.intval
         of vkFloat: $ defaultval.get.floatval
-        of vkString: '"' & defaultval.get.strval & '"'
+        of vkString: "'" & defaultval.get.strval & "'"
         of vkBool: $ defaultval.get.boolval
         of vkNil: "NULL"
     )
 
 func `$`(t: DBTable, indentVal = 4): string =
-    result = fmt"TABLE {t.name}(" & "\n" & (
+    result = fmt"CREATE TABLE {t.name}(" & "\n" & (
         t.columns.mapIt [
             it.name,
             getColumnType it,
@@ -150,7 +159,7 @@ func resolveColumnType(t: var DBTable, c: var DBColumn,
         else:
             error "invalid type options"
 
-    return parseEnum[DBColumnTypes](mytype.strVal)
+    return nimtype2sqlite(mytype.strVal)
 
 func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
     template notFound =
@@ -184,7 +193,7 @@ func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
                 t.primaryKeys.add c.name
             of "unique":
                 t.uniqueColumns.add c.name
-            
+
             else: notFound
         else:
             error "feature nim node kind is not acceptable"
@@ -272,7 +281,7 @@ macro Blueprint*(options, body) =
     if resolvedOptions.queryHolder != nil:
         let tablesQuery = collect newseq:
             for (name, table) in schema.pairs:
-                "CREATE " & $table
+                $table
 
         let
             path = resolvedOptions.queryHolder

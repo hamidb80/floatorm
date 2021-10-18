@@ -114,25 +114,25 @@ suite "correspoding object defenition":
     test "simple types":
         Blueprint []:
             Table model:
-                id: int
+                id: int64
                 name: char[256]
-                price: float
+                price: float64
                 bio: string
 
         check:
-            Model.id is int
+            Model.id is int64
             Model.name is string
-            Model.price is float
+            Model.price is float64
             Model.bio is string
 
     test "optional types":
         Blueprint []:
             Table model:
-                id: Option[int]
+                id: Option[int64]
                 name: Option[char[256]]
 
         check:
-            Model.id is Option[int]
+            Model.id is Option[int64]
             Model.name is Option[string]
 
 

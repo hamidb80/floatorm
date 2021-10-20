@@ -67,7 +67,7 @@ func nimtype2sqlite(`type`: string): DBColumnTypes =
     of "int", "int8", "int32", "int64": SCTint
     of "string": SCTtext
     of "char": SCTchar
-    of "float32", "float64": SCTfloat
+    of "float", "float32", "float64": SCTfloat
     else:
         raise newException(ValueError, "nim type is not supported")
 

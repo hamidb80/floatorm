@@ -2,19 +2,8 @@ import options, strutils, strformat, sequtils, tables
 import macros, macroplus
 
 type
-<<<<<<< HEAD
-    DBColumnTypes {.pure.} = enum
-        sctInt = "int"
-        sctText = "string"
-        sctChar = "char"
-        sctFloat = "float"
-=======
     DBColumnTypes = enum
-        SCTint
-        SCTtext
-        SCTchar
-        SCTfloat
->>>>>>> 23396220821dccec64add3b1d21e918bb6fdf881
+        sctInt, sctText, sctChar, sctFloat
 
     DBColumnFeatures = enum
         scfNullable, scfUnique
@@ -60,17 +49,10 @@ type
 func columnType2nimIdent(ct: DBColumnTypes): NimNode =
     ident:
         case ct:
-<<<<<<< HEAD
-        of sctInt: "int"
+        of sctInt: "int64"
         of sctText: "string"
         of sctChar: "string"
-        of sctFloat: "float"
-=======
-        of SCTint: "int64"
-        of SCTtext: "string"
-        of SCTchar: "string"
-        of SCTfloat: "float64"
->>>>>>> 23396220821dccec64add3b1d21e918bb6fdf881
+        of sctFloat: "float64"
 
 func `$`(features: set[DBColumnFeatures]): string =
     ([
@@ -80,10 +62,10 @@ func `$`(features: set[DBColumnFeatures]): string =
 
 func nimtype2sqlite(`type`: string): DBColumnTypes =
     case `type`:
-    of "int", "int8", "int32", "int64": SCTint
-    of "string": SCTtext
-    of "char": SCTchar
-    of "float", "float32", "float64": SCTfloat
+    of "int", "int8", "int32", "int64": sctInt
+    of "string": sctText
+    of "char": sctChar
+    of "float", "float32", "float64": sctFloat
     else:
         raise newException(ValueError, "nim type is not supported")
 
@@ -299,22 +281,15 @@ macro Blueprint*(options, body) =
 
     result = schema2objectDefs schema
 
-<<<<<<< HEAD
     if (let path = resolvedOptions.queryHolder; path != nil):
         let queryList = block:
             var res: seq[string]
-            
+
             for (tbname, tb) in schema.pairs:
                 res.add $tb
                 for c in tb.columns:
                     if issome c.index:
                         res.add fmt"CREATE INDEX {c.index.get} ON {tbname}({c.name});"
-=======
-    if resolvedOptions.queryHolder != nil:
-        let tablesQuery = collect newseq:
-            for (name, table) in schema.pairs:
-                $table
->>>>>>> 23396220821dccec64add3b1d21e918bb6fdf881
 
             res
 

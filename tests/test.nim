@@ -1,7 +1,7 @@
 import unittest, strutils, sequtils, options
 import easydb
 
-suite "nameing options":
+suite "naming options":
     test "prefix & postfix":
         var query: seq[string]
 

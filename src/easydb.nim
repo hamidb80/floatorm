@@ -1,15 +1,15 @@
 import options, strutils, strformat, sequtils, tables
-import macros, macroplus, sugar
+import macros, macroplus
 
 type
     DBColumnTypes {.pure.} = enum
-        SCTint = "int"
-        SCTtext = "string"
-        SCTchar = "char"
-        SCTfloat = "float"
+        sctInt = "int"
+        sctText = "string"
+        sctChar = "char"
+        sctFloat = "float"
 
     DBColumnFeatures = enum
-        SCFNullable
+        scfNullable, scfUnique
 
     DBTableFeatures = enum
         STFaddId
@@ -35,6 +35,7 @@ type
         refrence: Option[tuple[tableName, fieldName: string]]
         features: set[DBColumnFeatures]
         defaultValue: Option[DBDefaultValue]
+        index: Option[string]
 
     DefaltValueKind = enum
         vkInt, vkFloat, vkString, vkNil, vkBool
@@ -50,23 +51,23 @@ type
 func columnType2nimIdent(ct: DBColumnTypes): NimNode =
     ident:
         case ct:
-        of SCTint: "int"
-        of SCTtext: "string"
-        of SCTchar: "string"
-        of SCTfloat: "float"
+        of sctInt: "int"
+        of sctText: "string"
+        of sctChar: "string"
+        of sctFloat: "float"
 
 func `$`(features: set[DBColumnFeatures]): string =
     ([
-      (SCFNullable notin features, "NOT NULL"),
+      (scfNullable notin features, "NOT NULL"),
     ]
     .filterIt(it[0]).mapit it[1]).join(" ")
 
 func `$`(dbtype: DBColumnTypes): string =
     case dbtype:
-    of SCTint: "INTEGER"
-    of SCTtext: "TEXT"
-    of SCTchar: "CHAR"
-    of SCTfloat: "REAL"
+    of sctInt: "INTEGER"
+    of sctText: "TEXT"
+    of sctChar: "CHAR"
+    of sctFloat: "REAL"
 
 func getColumnType(c: DBColumn): string =
     result = $ c.`type`
@@ -88,7 +89,7 @@ func getDefaultValIfExists(defaultVal: Option[DBDefaultValue]): string =
     )
 
 func `$`(t: DBTable, indentVal = 4): string =
-    result = fmt"TABLE {t.name}(" & "\n" & (
+    result = fmt"CREATE TABLE {t.name}(" & "\n" & (
         t.columns.mapIt [
             it.name,
             getColumnType it,
@@ -112,13 +113,14 @@ func `$`(t: DBTable, indentVal = 4): string =
 
 # ---------------------------
 
-func resolveColumnType(t: var DBTable, c: var DBColumn,
-        `type`: NimNode): DBColumnTypes =
+func resolveColumnType(
+    t: var DBTable, c: var DBColumn, `type`: NimNode
+): DBColumnTypes =
     var mytype = `type`
 
     if mytype.kind == nnkBracketExpr:
         if mytype[BracketExprIdent].strVal == "Option":
-            c.features.incl SCFNullable
+            c.features.incl scfNullable
             mytype = mytype[1]
             return resolveColumnType(t, c, mytype)
 
@@ -152,9 +154,10 @@ func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
     for feature in featuresExpr:
         case feature.kind:
         of nnkExprColonExpr:
+            let nval = feature[ColonExprrightSide]
+
             case feature[ColonExprLeftSide].strval.normalize:
             of "default":
-                let nval = feature[ColonExprrightSide]
                 c.defaultValue = some:
                     case nval.kind:
                     of nnkIntLit: DBDefaultValue(kind: vkInt,
@@ -168,6 +171,9 @@ func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
                             boolVal: parseBool nval.strVal)
                     else:
                         raise newException(ValueError, "invalid default value")
+
+            of "index":
+                c.index = some nval.strVal
 
             else: notFound
 
@@ -223,7 +229,7 @@ func schema2objectDefs(sch: Schema): NimNode =
             objdef[0][^1][^1].add newIdentDefs(
                 ident(col.name),
 
-                if SCFNullable in col.features:
+                if scfNullable in col.features:
                     newNimNode(nnkbracketExpr).add(bindsym "Option", maybeType)
                 else:
                     maybeType
@@ -261,16 +267,19 @@ macro Blueprint*(options, body) =
 
     result = schema2objectDefs schema
 
-    if resolvedOptions.queryHolder != nil:
-        let tablesQuery = collect newseq:
-            for (name, table) in schema.pairs:
-                "CREATE " & $table
+    if (let path = resolvedOptions.queryHolder; path != nil):
+        let queryList = block:
+            var res: seq[string]
+            
+            for (tbname, tb) in schema.pairs:
+                res.add $tb
+                for c in tb.columns:
+                    if issome c.index:
+                        res.add fmt"CREATE INDEX {c.index.get} ON {tbname}({c.name});"
 
-        let
-            path = resolvedOptions.queryHolder
-            query = tablesQuery.join "\n"
+            res
 
         result.add quote do:
-            `path` = `query`
+            `path` = @`queryList`
 
     # echo result.repr

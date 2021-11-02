@@ -3,7 +3,7 @@ import easydb
 
 suite "nameing options":
     test "prefix & postfix":
-        var query: string
+        var query: seq[string]
 
         Blueprint [prefix: "zz", postfix: "Model", queryHolder: query]:
             Table my_table:
@@ -11,7 +11,7 @@ suite "nameing options":
 
         discard ZzMyTableModel()
         check: # NOTE: prefix and postfix do not have any effects on actual table name
-            "my_table" in query 
+            "my_table" in query.join
 
     test "prefix":
         Blueprint [prefix: "zz"]:
@@ -40,7 +40,7 @@ func createTable(tableName: string, rows: openArray[string]): string =
     "\n);"
 
 suite "table creation":
-    var query: string
+    var query: seq[string]
 
     test "simple typed columns":
         Blueprint [queryHolder: query]:
@@ -48,7 +48,7 @@ suite "table creation":
                 id: int
                 name: char[256]
 
-        check query == "test".createTable [
+        check query.join == "test".createTable [
             "id INTEGER NOT NULL",
             "name CHAR(256) NOT NULL"
         ]
@@ -60,7 +60,7 @@ suite "table creation":
                 Table test:
                     id: int {.primary.}
 
-            check query == "test".createTable [
+            check query.join == "test".createTable [
                 "id INTEGER NOT NULL",
                 "PRIMARY KEY (id)"
             ]
@@ -71,7 +71,7 @@ suite "table creation":
                     id: int {.primary.}
                     number: int {.primary.}
 
-            check query == "test".createTable [
+            check query.join == "test".createTable [
                 "id INTEGER NOT NULL",
                 "number INTEGER NOT NULL",
                 "PRIMARY KEY (id, number)"
@@ -82,7 +82,7 @@ suite "table creation":
                 Table test:
                     id: int {.default: 10.}
 
-            check query == "test".createTable [
+            check query.join == "test".createTable [
                 "id INTEGER NOT NULL DEFAULT 10"
             ]
 
@@ -92,7 +92,7 @@ suite "table creation":
                 id: Option[int]
                 name: Option[char[256]]
 
-        check query == "test".createTable [
+        check query.join == "test".createTable [
             "id INTEGER",
             "name CHAR(256)"
         ]
@@ -103,10 +103,18 @@ suite "table creation":
             Table test:
                 out_id: int[ref other.id]
 
-        check query == "test".createTable [
+        check query.join == "test".createTable [
             "out_id INTEGER NOT NULL",
             "FOREIGN KEY (out_id) REFERENCES other (id)"
         ]
+
+    test "INDEX :: single":
+        Blueprint [queryHolder: query]:
+            Table mytbl:
+                mycol: int {.index: "myidx".}
+
+        check query[1] == "CREATE INDEX myidx ON mytbl(mycol);"
+
 
 suite "correspoding object defenition":
     test "simple types":
@@ -132,5 +140,3 @@ suite "correspoding object defenition":
         check:
             Model.id is Option[int]
             Model.name is Option[string]
-
-

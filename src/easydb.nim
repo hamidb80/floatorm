@@ -2,11 +2,19 @@ import options, strutils, strformat, sequtils, tables
 import macros, macroplus
 
 type
+<<<<<<< HEAD
     DBColumnTypes {.pure.} = enum
         sctInt = "int"
         sctText = "string"
         sctChar = "char"
         sctFloat = "float"
+=======
+    DBColumnTypes = enum
+        SCTint
+        SCTtext
+        SCTchar
+        SCTfloat
+>>>>>>> 23396220821dccec64add3b1d21e918bb6fdf881
 
     DBColumnFeatures = enum
         scfNullable, scfUnique
@@ -26,6 +34,7 @@ type
         columns: seq[DBColumn]
         features: set[DBTableFeatures]
         primaryKeys: seq[string]
+        uniqueColumns: seq[string]
         refKeys: seq[tuple[`from`: string, to: tuple[table, column: string]]]
 
     DBColumn = object
@@ -51,16 +60,32 @@ type
 func columnType2nimIdent(ct: DBColumnTypes): NimNode =
     ident:
         case ct:
+<<<<<<< HEAD
         of sctInt: "int"
         of sctText: "string"
         of sctChar: "string"
         of sctFloat: "float"
+=======
+        of SCTint: "int64"
+        of SCTtext: "string"
+        of SCTchar: "string"
+        of SCTfloat: "float64"
+>>>>>>> 23396220821dccec64add3b1d21e918bb6fdf881
 
 func `$`(features: set[DBColumnFeatures]): string =
     ([
       (scfNullable notin features, "NOT NULL"),
     ]
     .filterIt(it[0]).mapit it[1]).join(" ")
+
+func nimtype2sqlite(`type`: string): DBColumnTypes =
+    case `type`:
+    of "int", "int8", "int32", "int64": SCTint
+    of "string": SCTtext
+    of "char": SCTchar
+    of "float", "float32", "float64": SCTfloat
+    else:
+        raise newException(ValueError, "nim type is not supported")
 
 func `$`(dbtype: DBColumnTypes): string =
     case dbtype:
@@ -83,7 +108,7 @@ func getDefaultValIfExists(defaultVal: Option[DBDefaultValue]): string =
         case defaultVal.get.kind:
         of vkInt: $ defaultval.get.intval
         of vkFloat: $ defaultval.get.floatval
-        of vkString: '"' & defaultval.get.strval & '"'
+        of vkString: "'" & defaultval.get.strval & "'"
         of vkBool: $ defaultval.get.boolval
         of vkNil: "NULL"
     )
@@ -102,6 +127,12 @@ func `$`(t: DBTable, indentVal = 4): string =
         result &= ",\n" & (
             ("PRIMARY KEY (" & t.primaryKeys.join(", ") & ")").indent(indentVal)
         )
+
+    if t.uniqueColumns.len != 0:
+        result &= ",\n" & (
+            ("UNIQUE (" & t.uniqueColumns.join(", ") & ")").indent(indentVal)
+        )
+
 
     if t.refkeys.len != 0:
         result &= ",\n" & (
@@ -145,7 +176,7 @@ func resolveColumnType(
         else:
             error "invalid type options"
 
-    return parseEnum[DBColumnTypes](mytype.strVal)
+    return nimtype2sqlite(mytype.strVal)
 
 func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
     template notFound =
@@ -181,9 +212,10 @@ func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
             case feature.strval.normalize:
             of "primary":
                 t.primaryKeys.add c.name
+            of "unique":
+                t.uniqueColumns.add c.name
 
             else: notFound
-
         else:
             error "feature nim node kind is not acceptable"
 
@@ -227,7 +259,7 @@ func schema2objectDefs(sch: Schema): NimNode =
             let maybeType = columnType2nimIdent(col.`type`)
 
             objdef[0][^1][^1].add newIdentDefs(
-                ident(col.name),
+                newNimNode(nnkPostfix).add(ident "*").add(ident col.name),
 
                 if scfNullable in col.features:
                     newNimNode(nnkbracketExpr).add(bindsym "Option", maybeType)
@@ -267,6 +299,7 @@ macro Blueprint*(options, body) =
 
     result = schema2objectDefs schema
 
+<<<<<<< HEAD
     if (let path = resolvedOptions.queryHolder; path != nil):
         let queryList = block:
             var res: seq[string]
@@ -276,6 +309,12 @@ macro Blueprint*(options, body) =
                 for c in tb.columns:
                     if issome c.index:
                         res.add fmt"CREATE INDEX {c.index.get} ON {tbname}({c.name});"
+=======
+    if resolvedOptions.queryHolder != nil:
+        let tablesQuery = collect newseq:
+            for (name, table) in schema.pairs:
+                $table
+>>>>>>> 23396220821dccec64add3b1d21e918bb6fdf881
 
             res
 

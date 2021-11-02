@@ -55,6 +55,7 @@ suite "table creation":
 
 
     suite "columns with options":
+<<<<<<< HEAD
         test "PRIMARY":
             Blueprint [queryHolder: query]:
                 Table test:
@@ -66,6 +67,9 @@ suite "table creation":
             ]
 
         test "MULTI PRIMARY KEYS":
+=======
+        test "PRIMARY KEYS":
+>>>>>>> 23396220821dccec64add3b1d21e918bb6fdf881
             Blueprint [queryHolder: query]:
                 Table test:
                     id: int {.primary.}
@@ -97,6 +101,18 @@ suite "table creation":
             "name CHAR(256)"
         ]
 
+    test "UNIQUE":
+        Blueprint [queryHolder: query]:
+            Table test:
+                id: int {.unique.}
+                name: string {.unique.}
+
+        check query == "test".createTable [
+            "id INTEGER NOT NULL",
+            "name TEXT NOT NULL",
+            "UNIQUE (id, name)"
+        ]
+
 
     test "RELATION":
         Blueprint [queryHolder: query]:
@@ -120,23 +136,23 @@ suite "correspoding object defenition":
     test "simple types":
         Blueprint []:
             Table model:
-                id: int
+                id: int64
                 name: char[256]
-                price: float
+                price: float64
                 bio: string
 
         check:
-            Model.id is int
+            Model.id is int64
             Model.name is string
-            Model.price is float
+            Model.price is float64
             Model.bio is string
 
     test "optional types":
         Blueprint []:
             Table model:
-                id: Option[int]
+                id: Option[int64]
                 name: Option[char[256]]
 
         check:
-            Model.id is Option[int]
+            Model.id is Option[int64]
             Model.name is Option[string]

@@ -127,6 +127,13 @@ suite "table creation":
 
         check query[1] == "CREATE INDEX myidx ON mytbl(mycol);"
 
+    test "INDEX :: single :: default index name":
+        Blueprint [queryHolder: query]:
+            Table mytbl:
+                mycol: int {.index.}
+
+        check "mycol_index" in query[1]
+
 
 suite "correspoding object defenition":
     test "simple types":

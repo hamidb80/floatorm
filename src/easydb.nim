@@ -196,6 +196,9 @@ func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
                 t.primaryKeys.add c.name
             of "unique":
                 t.uniqueColumns.add c.name
+            of "index":
+                c.index = some c.name & "_index"
+
 
             else: notFound
         else:
@@ -276,12 +279,12 @@ func resolveSchemeOptions(options: NimNode): SchemaOptions =
 
 macro Blueprint*(options, body) =
     let
-        resolvedOptions = resolveSchemeOptions options
-        schema = schemaGen(resolvedOptions, body)
+        ro = resolveSchemeOptions options
+        schema = schemaGen(ro, body)
 
     result = schema2objectDefs schema
 
-    if (let path = resolvedOptions.queryHolder; path != nil):
+    if (let path = ro.queryHolder; path != nil):
         let queryList = block:
             var res: seq[string]
 

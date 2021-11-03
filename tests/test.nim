@@ -121,7 +121,7 @@ suite "table creation":
         ]
 
     test "INDEX :: single":
-        Blueprint [queryHolder: query]:
+        Blueprint [queryHolder: query, postfix: "Model"]:
             Table mytbl:
                 mycol: int {.index: "myidx".}
 

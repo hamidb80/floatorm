@@ -288,11 +288,11 @@ macro Blueprint*(options, body) =
         let queryList = block:
             var res: seq[string]
 
-            for (tbname, tb) in schema.pairs:
+            for tb in schema.values:
                 res.add $tb
                 for c in tb.columns:
                     if issome c.index:
-                        res.add fmt"CREATE INDEX {c.index.get} ON {tbname}({c.name});"
+                        res.add fmt"CREATE INDEX {c.index.get} ON {tb.name}({c.name});"
 
             res
 

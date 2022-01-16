@@ -1,3 +1,2 @@
-import easydb/contructor as cstr
-
-export cstr
+import easydb/[contructor, utils]
+export contructor, utils

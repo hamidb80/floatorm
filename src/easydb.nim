@@ -3,13 +3,13 @@ import macros, macroplus
 
 type
     DBColumnTypes = enum
-        sctInt, sctText, sctChar, sctFloat
+        ctInt, ctText, ctChar, ctFloat
 
     DBColumnFeatures = enum
-        scfNullable, scfUnique
+        cfNullable, cfUnique
 
     DBTableFeatures = enum
-        STFaddId
+        TFaddId
 
     SchemaOptions = object
         queryHolder: NimNode # variable to save init query
@@ -49,32 +49,32 @@ type
 func columnType2nimIdent(ct: DBColumnTypes): NimNode =
     ident:
         case ct:
-        of sctInt: "int64"
-        of sctText: "string"
-        of sctChar: "string"
-        of sctFloat: "float64"
+        of ctInt: "int64"
+        of ctText: "string"
+        of ctChar: "string"
+        of ctFloat: "float64"
 
 func `$`(features: set[DBColumnFeatures]): string =
     ([
-      (scfNullable notin features, "NOT NULL"),
+      (cfNullable notin features, "NOT NULL"),
     ]
     .filterIt(it[0]).mapit it[1]).join(" ")
 
 func nimtype2sqlite(`type`: string): DBColumnTypes =
     case `type`:
-    of "int", "int8", "int32", "int64": sctInt
-    of "string": sctText
-    of "char": sctChar
-    of "float", "float32", "float64": sctFloat
+    of "int", "int8", "int32", "int64": ctInt
+    of "string": ctText
+    of "char": ctChar
+    of "float", "float32", "float64": ctFloat
     else:
         raise newException(ValueError, "nim type is not supported")
 
 func `$`(dbtype: DBColumnTypes): string =
     case dbtype:
-    of sctInt: "INTEGER"
-    of sctText: "TEXT"
-    of sctChar: "CHAR"
-    of sctFloat: "REAL"
+    of ctInt: "INTEGER"
+    of ctText: "TEXT"
+    of ctChar: "CHAR"
+    of ctFloat: "REAL"
 
 func getColumnType(c: DBColumn): string =
     result = $ c.`type`
@@ -133,7 +133,7 @@ func resolveColumnType(
 
     if mytype.kind == nnkBracketExpr:
         if mytype[BracketExprIdent].strVal == "Option":
-            c.features.incl scfNullable
+            c.features.incl cfNullable
             mytype = mytype[1]
             return resolveColumnType(t, c, mytype)
 
@@ -246,7 +246,7 @@ func schema2objectDefs(sch: Schema): NimNode =
             objdef[0][^1][^1].add newIdentDefs(
                 newNimNode(nnkPostfix).add(ident "*").add(ident col.name),
 
-                if scfNullable in col.features:
+                if cfNullable in col.features:
                     newNimNode(nnkbracketExpr).add(bindsym "Option", maybeType)
                 else:
                     maybeType

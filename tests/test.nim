@@ -1,7 +1,20 @@
 import std/[unittest, strutils, sequtils, options]
 import easydb
 
+func createTable(tableName: string, rows: openArray[string]): string =
+    "CREATE TABLE test(\n" &
+    rows.mapIt(it.indent 4).join(",\n") &
+    "\n);"
+
+
 suite "naming options":
+    test "nothing":
+        Blueprint []:
+            Table test:
+                id: int
+
+        discard Test()
+
     test "prefix & postfix":
         var query: seq[string]
 
@@ -13,31 +26,6 @@ suite "naming options":
         check: # NOTE: prefix and postfix do not have any effects on actual table name
             "my_table" in query.join
 
-    test "prefix":
-        Blueprint [prefix: "zz"]:
-            Table test:
-                id: int
-
-        discard Zztest()
-
-    test "postfix":
-        Blueprint [postfix: "zz"]:
-            Table test:
-                id: int
-
-        discard Testzz()
-
-    test "nothing":
-        Blueprint []:
-            Table test:
-                id: int
-
-        discard Test()
-
-func createTable(tableName: string, rows: openArray[string]): string =
-    "CREATE TABLE test(\n" &
-    rows.mapIt(it.indent 4).join(",\n") &
-    "\n);"
 
 suite "table creation":
     var query: seq[string]
@@ -54,17 +42,7 @@ suite "table creation":
         ]
 
     suite "columns with options":
-        test "PRIMARY":
-            Blueprint [queryHolder: query]:
-                Table test:
-                    id: int {.primary.}
-
-            check query.join == "test".createTable [
-                "id INTEGER NOT NULL",
-                "PRIMARY KEY (id)"
-            ]
-
-        test "MULTI PRIMARY KEYS":
+        test "PRIMARY KEYS":
             Blueprint [queryHolder: query]:
                 Table test:
                     id: int {.primary.}
@@ -118,7 +96,7 @@ suite "table creation":
             "FOREIGN KEY (out_id) REFERENCES other (id)"
         ]
 
-    test "INDEX :: single":
+    test "INDEX :: inline":
         Blueprint [queryHolder: query, postfix: "Model"]:
             Table mytbl:
                 mycol1: int {.index: "myidx".}

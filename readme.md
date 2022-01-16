@@ -2,10 +2,10 @@
 single model for both your table creation & your nim objects!
 
 ## Usage
-for now, take a look at `tests/test.nim`
+take a look at `tests/test.nim`
 
 ## Limitations:
-currently it only supports `Sqlite`
+currently only `Sqlite` is supported
 
 ## Todo:
 - [ ] read from existing database

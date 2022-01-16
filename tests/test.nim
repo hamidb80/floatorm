@@ -1,4 +1,4 @@
-import unittest, strutils, sequtils, options
+import std/[unittest, strutils, sequtils, options]
 import easydb
 
 suite "naming options":
@@ -52,7 +52,6 @@ suite "table creation":
             "id INTEGER NOT NULL",
             "name CHAR(256) NOT NULL"
         ]
-
 
     suite "columns with options":
         test "PRIMARY":
@@ -109,7 +108,6 @@ suite "table creation":
             "UNIQUE (id, name)"
         ]
 
-
     test "RELATION":
         Blueprint [queryHolder: query]:
             Table test:
@@ -123,17 +121,24 @@ suite "table creation":
     test "INDEX :: single":
         Blueprint [queryHolder: query, postfix: "Model"]:
             Table mytbl:
-                mycol: int {.index: "myidx".}
+                mycol1: int {.index: "myidx".}
+                mycol2: int {.index.}
 
-        check query[1] == "CREATE INDEX myidx ON mytbl(mycol);"
+        check:
+            query[1] == "CREATE INDEX myidx ON mytbl(mycol1);"
+            query[2] == "CREATE INDEX mycol2_index ON mytbl(mycol2);"
 
-    test "INDEX :: single :: default index name":
+    test "INDEX :: multi":
         Blueprint [queryHolder: query]:
             Table mytbl:
-                mycol: int {.index.}
+                name: string
+                age: int
+                Index [name, age] as "bio"
+                Index [name, age]
 
-        check "mycol_index" in query[1]
-
+        check:
+            query[1] == "CREATE INDEX bio ON mytbl(name, age);"
+            query[2] == "CREATE INDEX name_age_index ON mytbl(name, age);"
 
 suite "correspoding object defenition":
     test "simple types":

@@ -1,4 +1,4 @@
-import std/[options, strutils, strformat, sequtils, tables, db_common]
+import std/[options, strutils, strformat, sequtils, tables]
 import macros, macroplus
 
 type

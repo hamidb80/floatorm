@@ -1,4 +1,4 @@
-import std/[options, strutils, strformat, sequtils, tables]
+import std/[options, strutils, strformat, sequtils, tables, db_common]
 import macros, macroplus
 
 type
@@ -54,12 +54,6 @@ func columnType2nimIdent(ct: DBColumnTypes): NimNode =
         of ctChar: "string"
         of ctFloat: "float64"
 
-func `$`(features: set[DBColumnFeatures]): string =
-    ([
-      (cfNullable notin features, "NOT NULL"),
-    ]
-    .filterIt(it[0]).mapit it[1]).join(" ")
-
 func nimtype2sqlite(`type`: string): DBColumnTypes =
     case `type`:
     of "int", "int8", "int32", "int64": ctInt
@@ -68,6 +62,12 @@ func nimtype2sqlite(`type`: string): DBColumnTypes =
     of "float", "float32", "float64": ctFloat
     else:
         raise newException(ValueError, "the type is not supported: " & `type`)
+
+func `$`(features: set[DBColumnFeatures]): string =
+    ([
+      (cfNullable notin features, "NOT NULL"),
+    ]
+    .filterIt(it[0]).mapit it[1]).join(" ")
 
 func `$`(dbtype: DBColumnTypes): string =
     case dbtype:

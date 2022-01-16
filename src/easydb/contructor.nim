@@ -30,7 +30,7 @@ type
     DBColumn = object
         name: string
         `type`: DBColumnTypes
-        typeArg: int
+        typeArg: Option[int]
         reference: Option[tuple[tableName, fieldName: string]]
         features: set[DBColumnFeatures]
         defaultValue: Option[DBDefaultValue]
@@ -79,8 +79,8 @@ func `$`(dbtype: DBColumnTypes): string =
 func getColumnType(c: DBColumn): string =
     result = $ c.`type`
 
-    if c.typeArg != 0:
-        result &= fmt"({c.typeArg})"
+    if issome c.typeArg:
+        result &= fmt"({c.typeArg.get})"
 
 func getDefaultValIfExists(defaultVal: Option[DBDefaultValue]): string =
     if not issome defaultVal:
@@ -153,8 +153,8 @@ func resolveColumnType(
 
                 t.refkeys.add (c.name, (refTable, refColumn))
 
-            elif firstarg.allIt it.kind in {nnkIntLit, nnkStrLit}:
-                c.typeArg = args[0].intVal.int
+            elif firstarg.kind in {nnkIntLit, nnkStrLit}:
+                c.typeArg = some firstArg.intVal.int
 
             else:
                 error "invalid type options: " & repr mytype
@@ -278,6 +278,9 @@ func schemaGen(options: SchemaOptions, body: NimNode): Schema =
         let tablename = table.name
 
         result[options.prefix & tablename & options.postfix] = table
+
+    debugEcho "-------------------"
+    debugEcho result
 
 func resolveSchemeOptions(options: NimNode): SchemaOptions =
     doAssert options.kind == nnkBracket

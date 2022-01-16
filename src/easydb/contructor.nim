@@ -188,8 +188,7 @@ func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
                                 "invalid default value: " & $nval.kind)
 
             of "index":
-                let iname = nval.strVal
-                t.indexes.add DBMultiColumnIndex(name: iname, columns: @[c.name])
+                t.indexes.add DBMultiColumnIndex(name: nval.strVal, columns: @[c.name])
 
             else: notFound
 
@@ -279,8 +278,7 @@ func schemaGen(options: SchemaOptions, body: NimNode): Schema =
 
         result[options.prefix & tablename & options.postfix] = table
 
-    debugEcho "-------------------"
-    debugEcho result
+    # debugEcho "-------------------\n", result
 
 func resolveSchemeOptions(options: NimNode): SchemaOptions =
     doAssert options.kind == nnkBracket

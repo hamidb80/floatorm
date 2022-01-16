@@ -136,27 +136,28 @@ func resolveColumnType(
             c.features.incl cfNullable
             mytype = mytype[1]
             return resolveColumnType(t, c, mytype)
-
-        let
-            args = mytype[BracketExprParams]
-            firstArg = args[0]
-
-        mytype = mytype[BracketExprIdent]
-
-        if firstArg.kind == nnkRefTy:
-            doassert firstArg[0].kind == nnkDotExpr
-
-            let
-                refTable = firstArg[0][0].strval
-                refColumn = firstArg[0][1].strval
-
-            t.refkeys.add (c.name, (refTable, refColumn))
-
-        elif firstarg.allIt it.kind in [nnkIntLit, nnkStrLit]:
-            c.typeArg = args[0].intVal.int
-
+        
         else:
-            error "invalid type options"
+            let
+                args = mytype[BracketExprParams]
+                firstArg = args[0]
+
+            mytype = mytype[BracketExprIdent]
+
+            if firstArg.kind == nnkRefTy:
+                doassert firstArg[0].kind == nnkDotExpr
+
+                let
+                    refTable = firstArg[0][0].strval
+                    refColumn = firstArg[0][1].strval
+
+                t.refkeys.add (c.name, (refTable, refColumn))
+
+            elif firstarg.allIt it.kind in {nnkIntLit, nnkStrLit}:
+                c.typeArg = args[0].intVal.int
+
+            else:
+                error "invalid type options: " & repr mytype
 
     return nimtype2sqlite(mytype.strVal)
 
@@ -203,7 +204,7 @@ func addFeatures(t: var DBTable, c: var DBColumn, featuresExpr: NimNode) =
 
             else: notFound
         else:
-            error "feature nim node kind is not acceptable"
+            error "feature nim node kind is not acceptable: " & $feature.kind
 
 func columnGen(table: var DBTable, rawColumn: NimNode): DBColumn =
     result.name = rawColumn[CommandIdent].strVal
@@ -292,7 +293,7 @@ func resolveSchemeOptions(options: NimNode): SchemaOptions =
         of "prefix": result.prefix = value.strval
         of "postfix": result.postfix = value.strval
         else:
-            error "undefined option key"
+            error "undefined option key: " & field
 
 macro Blueprint*(options, body) =
     let

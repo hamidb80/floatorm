@@ -1,4 +1,4 @@
-import db_sqlite {.all.}, sequtils, options
+import db_sqlite {.all.}, sequtils
 
 template dbworks*(path: string, body): untyped =
     ## opens a db connection then closes; it wont close if a error occurs 

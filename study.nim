@@ -8,16 +8,15 @@ type
 
   Percent* = range[0.0 .. 100.0]
 
-
 how_to "model database":
 
-  func toEmail(s: string): Email
+  func toEmail(s: string): Email {.deserializer.}
 
   Blueprint():
     Table user {.insert.}:
       id: string {.primary, insert: false.}
       name: string
-      email: string {.type: Email, deserializer: toEmail.}
+      email: string {.type: Email.}
 
     Table file {.insert.}:
       id: int {.primary.}
@@ -30,9 +29,17 @@ how_to "model database":
 
     db.insertUser(name = "ali", email = "hey@support.com")
 
+how_to "define query models":
+  ## single def
+  model CompleteFileInfo *=
+      (FileModel{id, path, state, progress}, user: UserModel{id, name})
+
+  ## multi def
+  models:
+    CompleteFileInfo *=
+      (FileModel{id, path, state, progress}, user: UserModel{id, name})
 
 how_to "query":
-
 
   proc getUserFiles(uid: int, state: FileStates): auto =
     sql"""
@@ -43,22 +50,14 @@ how_to "query":
     .toModel FileModel{id, path, progress, count: int}[]
 
 
-  model CompleteFileInfo *=
-      (FileModel{id, path, state, progress}, user: UserModel{id, name})
-
-  models:
-    CompleteFileInfo *=
-      (FileModel{id, path, state, progress}, user: UserModel{id, name})
-
-
   proc getFiles: seq[CompleteFileInfo] = sql"""
       SELECT f.id, f.path, f.state, f.progress, u.id, u.name
       FROM file f, user u
       LEFT JOIN user uid = u.id
     """
     .toModel (FileModel{id, path, state, progress}, user: UserModel{id, name})[]
-    .toModel (file: FileModel{id, path, state, progress}, user: UserModel{id, name})[]
-    .toModel (file: {id: FieldMode.id .. _}, user: {id: int, name: string})[]
+    .toModel (file: FileModel{id, path, }, user: UserModel{id, name})[]
+    .toModel (file: {id: FieldMode.id, }, user: {id: int, name: string})[]
     .toModel FileModel{id, path, state, progress, user: UserModel{id, name}}[]
 
 
@@ -68,6 +67,7 @@ how_to "query":
       WHERE id = ?
     """
     .toValue Option[FileModel.state]
+
 
   proc getFileState(id: int): auto = sql"""
       SELECT state, progress

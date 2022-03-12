@@ -1,5 +1,5 @@
 import std/[unittest, strutils, sequtils, options]
-import easydb
+import floatdb
 
 func createTable(tableName: string, rows: openArray[string]): string =
     "CREATE TABLE test(\n" &

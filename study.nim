@@ -1,68 +1,64 @@
-template how_to(idea, blueprint) = discard
+template `>>`(context, impl) = discard
 
-how_to "restrict model":
+# --------------------------------------------
+
+>> "restrict model":
   type
-    Email* = distinct string
-    FileStates* = enum
-      fsUnspecified, fsInProgress, fsFailed, fsFinished
+    Email = distinct string
+    FileStates = enum
+      fsPending, fsInProgress, fsFailed, fsFinished
 
-    Percent* = range[0.0 .. 100.0]
+    Percent = range[0.0 .. 100.0]
 
   func toEmail(s: string): Email {.deserializer.}
 
 
-how_to "model database":
+>> "model database":
+  let maxUsernameLen = parseInt getEnv "MAX_STR_LEN"
+
   Blueprint():
     Table user:
-      id: string {.primary.}
+      id: char[maxUsernameLen] {.primary.}
       email: string {.type: Email.}
+
 
     Table file:
       id: int {.primary.}
       uid: int[ref user.id]
-      state: int {.type: FileStates.}
-      progress: int {.type: Percent.}
+      # state: int {.type: FileStates, default: fsPending.}
+      state: int ~> FileStates = fsPending.int
+      progress: float ~> Percent = 0.0
+      metadata: ?string ## FIXME remove Option and use ?
 
 
-how_to "define custom models":
-  ## single def
-  type CompleteFileInfo* {.model.} =
+>> "define custom models":
+  type CompleteFileInfo {.model.} =
     (FileModel{id, path, state, progress}, user: UserModel{id, name})
 
-how_to "query":
 
-  proc getUserFiles(uid: int, state: FileStates): auto =
-    sql"""
-      SELECT id, path, progress, COUNT(1) as d
-      FROM file
-      WHERE uid = ? AND state = ?
-    """
-    .toModel FileModel{id, path, progress, count: int}[]
-
-
+>> "query":
   proc getFiles: seq[CompleteFileInfo] = sql"""
       SELECT f.id, f.path, f.state, f.progress, u.id, u.name
       FROM file f, user u
       LEFT JOIN user uid = u.id
     """
     .toModel (FileModel{id, path, state, progress}, user: UserModel{id, name})[]
-    .toModel (file: FileModel{id, path, }, user: UserModel{id, name})[]
-    .toModel (file: {id: FieldMode.id, }, user: {id: int, name: string})[]
+    .toModel (file: FileModel{id, path}, user: UserModel{id, name})[]
+    .toModel (file: {id: FieldMode.id}, user: {id: int, name: string})[]
     .toModel FileModel{id, path, state, progress, user: UserModel{id, name}}[]
-
 
   proc getFileState(id: int): auto = sql"""
       SELECT state
       FROM file
       WHERE id = ?
     """
-    .toValue Option[FileModel.state]
+    .toValue ?FileModel.state
 
 
-  proc getFileState(id: int): auto = sql"""
+  proc getFileStatus(id: int): auto = sql"""
       SELECT state, progress
       FROM file
       WHERE id = ?
     """
     .toValues FileModel{state, progress}
-    .toValues (st: FileModel.state, p: FileModel.progress)
+    .toValues (s: FileModel.state, p: FileModel.progress)

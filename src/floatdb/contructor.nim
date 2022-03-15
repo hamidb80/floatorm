@@ -301,6 +301,8 @@ func resolveSchemeOptions(options: NimNode): SchemaOptions =
 
 macro Blueprint*(options, body) =
   # FIXME add "script mode" https://www.sqlite.org/stricttables.html
+  # FIXME make it work with constants
+  # TODO add "as" infix for table def:  table types as "_types"
   let
     ro = resolveSchemeOptions options
     schema = schemaGen(ro, body)

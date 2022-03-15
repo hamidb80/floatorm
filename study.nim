@@ -12,7 +12,7 @@ template `>>`(context, impl) = discard
 
   func toEmail(s: string): Email
 
-z
+
 >> "model database":
   let maxUsernameLen = parseInt getEnv "MAX_STR_LEN"
 
@@ -23,7 +23,7 @@ z
     Table user:
       id: char(maxUsernameLen) {.primary.}
       email: string ~> Email
-      meta: ?string -> JsonNode
+      meta: ?string ~> JsonNode
 
     Table file:
       id: int {.primary, name: "_id".}
@@ -43,14 +43,17 @@ z
     Table{name = "user",
       columns = [
         Column{
-          name: "id", `type`: "INT", param: Optoin[string],
-          defaultValue: Option[string], features: {cfPrimary, cfNotNull}
+          name: "id", `type`: "INT",
+          param: Option[string], defaultValue: Option[string],
+          features: {cfPrimary, cfNotNull}
         },
       ],
       indexes = [
         Index(fields: @["a", "b"], name: "index_ab")
       ],
-      refrences = ["a" -> "table.d"],
+      references = [
+        Reference(`from`: "a", to: DBPath{table: "_table", column: "_col"})
+      ],
     }
 
 
@@ -69,6 +72,7 @@ z
     .toModel (file: FileModel{id, path}, user: UserModel{id, name})[]
     .toModel (file: {id: FieldMode.id}, user: {id: int, name: string})[]
     .toModel FileModel{id, path, state, progress, user: UserModel{id, name}}[]
+
 
   proc getFileState(id: int): auto = sql"""
       SELECT state

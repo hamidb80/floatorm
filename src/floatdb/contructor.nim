@@ -10,8 +10,8 @@ type
 
   SchemaOptions = object
     queryHolder: NimNode # variable to save init query
-    prefix: string     # table name prefix
-    postfix: string    # table name postfix
+    prefix: string       # table name prefix
+    postfix: string      # table name postfix
 
   Schema* = OrderedTable[string, DBTable]
 
@@ -83,17 +83,18 @@ func getColumnType(c: DBColumn): string =
     result &= fmt"({c.typeArg.get})"
 
 func getDefaultValIfExists(defaultVal: Option[DBDefaultValue]): string =
-  if not issome defaultVal:
-    return
+  if isSome defaultVal:
+    "DEFAULT " & ( # FIXME string with '
+      case defaultVal.get.kind:
+      of vkInt: $ defaultval.get.intval
+      of vkFloat: $ defaultval.get.floatval
+      of vkString: "'" & defaultval.get.strval & "'"
+      of vkBool: $ defaultval.get.boolval
+      of vkNil: "NULL"
+    )
 
-  "DEFAULT " & (
-    case defaultVal.get.kind:
-    of vkInt: $ defaultval.get.intval
-    of vkFloat: $ defaultval.get.floatval
-    of vkString: "'" & defaultval.get.strval & "'"
-    of vkBool: $ defaultval.get.boolval
-    of vkNil: "NULL"
-  )
+  else:
+    ""
 
 func toSql(t: DBTable, indentVal = 4): seq[string] =
   result.add fmt"CREATE TABLE {t.name}(" & "\n" & (
@@ -126,9 +127,9 @@ func toSql(t: DBTable, indentVal = 4): seq[string] =
 
 # ---------------------------
 
-func resolveColumnType(
-  t: var DBTable, c: var DBColumn, `type`: NimNode
-): DBColumnTypes =
+func resolveColumnType(t: var DBTable, c: var DBColumn,
+  `type`: NimNode): DBColumnTypes =
+
   var mytype = `type`
 
   if mytype.kind == nnkBracketExpr:
@@ -145,7 +146,7 @@ func resolveColumnType(
       mytype = mytype[BracketExprIdent]
 
       if firstArg.kind == nnkRefTy:
-        doassert firstArg[0].kind == nnkDotExpr
+        expectKind firstArg[0], nnkDotExpr
 
         let
           refTable = firstArg[0][0].strval
@@ -219,7 +220,7 @@ func columnGen(table: var DBTable, rawColumn: NimNode): DBColumn =
     addFeatures table, result, params[1]
 
 func toStrSeq(node: NimNode): seq[string] =
-  doAssert node.kind == nnkBracket
+  expectKind node, nnkBracket
   node.mapIt $it
 
 func indexGen(entity: NimNode): DBMultiColumnIndex =
@@ -282,11 +283,10 @@ func schemaGen(options: SchemaOptions, body: NimNode): Schema =
   # debugEcho "-------------------\n", result
 
 func resolveSchemeOptions(options: NimNode): SchemaOptions =
-  doAssert options.kind == nnkBracket
+  expectKind options, nnkBracket
 
   for pair in options:
-    doAssert pair.kind == nnkExprColonExpr,
-        "invalid option type | it must be a pair but it's: " & $pair.kind
+    expectKind pair, nnkExprColonExpr
 
     let
       field = pair[0].strval

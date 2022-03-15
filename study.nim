@@ -10,25 +10,48 @@ template `>>`(context, impl) = discard
 
     Percent = range[0.0 .. 100.0]
 
-  func toEmail(s: string): Email {.deserializer.}
+  func toEmail(s: string): Email
 
-
+z
 >> "model database":
   let maxUsernameLen = parseInt getEnv "MAX_STR_LEN"
 
   Blueprint():
-    Table user:
-      id: char[maxUsernameLen] {.primary.}
-      email: string {.type: Email.}
+    convertors:
+      string ~> Email: toEmail
 
+    Table user:
+      id: char(maxUsernameLen) {.primary.}
+      email: string ~> Email
+      meta: ?string -> JsonNode
 
     Table file:
-      id: int {.primary.}
+      id: int {.primary, name: "_id".}
       uid: int[ref user.id]
-      # state: int {.type: FileStates, default: fsPending.}
       state: int ~> FileStates = fsPending.int
       progress: float ~> Percent = 0.0
-      metadata: ?string ## FIXME remove Option and use ?
+      metadata: ?string
+
+    # --------------------------------
+
+    type
+      UserModel = object
+        id: string
+        email: string
+        meta: string
+
+    Table{name = "user",
+      columns = [
+        Column{
+          name: "id", `type`: "INT", param: Optoin[string],
+          defaultValue: Option[string], features: {cfPrimary, cfNotNull}
+        },
+      ],
+      indexes = [
+        Index(fields: @["a", "b"], name: "index_ab")
+      ],
+      refrences = ["a" -> "table.d"],
+    }
 
 
 >> "define custom models":

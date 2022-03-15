@@ -300,6 +300,7 @@ func resolveSchemeOptions(options: NimNode): SchemaOptions =
       error "invalid option key: " & field
 
 macro Blueprint*(options, body) =
+  # FIXME add "script mode" https://www.sqlite.org/stricttables.html
   let
     ro = resolveSchemeOptions options
     schema = schemaGen(ro, body)

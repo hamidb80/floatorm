@@ -1,43 +1,33 @@
 template how_to(idea, blueprint) = discard
 
+how_to "restrict model":
+  type
+    Email* = distinct string
+    FileStates* = enum
+      fsUnspecified, fsInProgress, fsFailed, fsFinished
 
-type
-  Email* = distinct string
-  FileStates* = enum
-    fsUnspecified, fsInProgress, fsFailed, fsFinished
-
-  Percent* = range[0.0 .. 100.0]
-
-how_to "model database":
+    Percent* = range[0.0 .. 100.0]
 
   func toEmail(s: string): Email {.deserializer.}
 
+
+how_to "model database":
   Blueprint():
-    Table user {.insert.}:
-      id: string {.primary, insert: false.}
-      name: string
+    Table user:
+      id: string {.primary.}
       email: string {.type: Email.}
 
-    Table file {.insert.}:
+    Table file:
       id: int {.primary.}
       uid: int[ref user.id]
-
-      path: string {.type: Path.}
       state: int {.type: FileStates.}
       progress: int {.type: Percent.}
 
 
-    db.insertUser(name = "ali", email = "hey@support.com")
-
-how_to "define query models":
+how_to "define custom models":
   ## single def
-  model CompleteFileInfo *=
-      (FileModel{id, path, state, progress}, user: UserModel{id, name})
-
-  ## multi def
-  models:
-    CompleteFileInfo *=
-      (FileModel{id, path, state, progress}, user: UserModel{id, name})
+  type CompleteFileInfo* {.model.} =
+    (FileModel{id, path, state, progress}, user: UserModel{id, name})
 
 how_to "query":
 
